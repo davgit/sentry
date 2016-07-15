@@ -8,7 +8,7 @@ from django.utils.html import format_html
 
 from sentry.api.bases.group import GroupEndpoint
 from sentry.api.bases.project import ProjectEndpoint
-from sentry.models import Activity, GroupMeta
+from sentry.models import Activity, Event, GroupMeta
 from sentry.plugins import Plugin
 from sentry.plugins.base.configuration import default_issue_plugin_config
 from sentry.utils.auth import get_auth_providers
@@ -47,8 +47,6 @@ class IssuePluginProjectEndpoint(ProjectEndpoint):
 
 class IssueTrackingPlugin2(Plugin):
     auth_provider = None
-    can_unlink_issues = False
-    can_link_existing_issues = False
     allowed_actions = ('create', 'link', 'unlink')
 
     def get_group_urls(self):
@@ -125,19 +123,10 @@ class IssueTrackingPlugin2(Plugin):
 
         return bool(not UserSocialAuth.objects.filter(user=request.user, provider=self.auth_provider).exists())
 
-    def get_new_issue_title(self, **kwargs):
-        """
-        Return a string for the "Create new issue" action label.
-        """
-        return 'Create %s Issue' % self.get_title()
-
-    def get_unlink_issue_title(self, **kwargs):
-        """
-        Return a string for the "Unlink plugin issue" action label.
-        """
-        return 'Unlink %s Issue' % self.get_title()
-
     def get_new_issue_fields(self, request, group, event, **kwargs):
+        """
+        If overriding, supported properties include 'readonly': true
+        """
         return [{
             'name': 'title',
             'label': 'Title',
@@ -149,13 +138,6 @@ class IssueTrackingPlugin2(Plugin):
             'default': self._get_group_description(request, group, event),
             'type': 'textarea'
         }]
-
-    def get_new_issue_read_only_fields(self, *args, **kwargs):
-        """
-        Return a list of additional read only fields that are helpful to
-        know when filing the issue.
-        """
-        return []
 
     def get_link_existing_issue_fields(self, request, group, event, **kwargs):
         return [{
@@ -184,6 +166,7 @@ class IssueTrackingPlugin2(Plugin):
         """
         raise NotImplementedError
 
+    # TODO: should this return more than just title?
     def get_issue_title_by_id(self, request, group, issue_id):
         """
         Given an issue_id return the issue's title.
@@ -221,8 +204,9 @@ class IssueTrackingPlugin2(Plugin):
         auth_errors = self.check_config_and_auth(request, group)
         if auth_errors:
             return Response(auth_errors, status=400)
-        event = group.get_latest_event()
         if request.method == 'GET':
+            event = group.get_latest_event()
+            Event.objects.bind_nodes([event], 'data')
             return Response(self.get_new_issue_fields(request, group, event, **kwargs))
         # TODO: add validation, put in try, except
         issue_id = self.create_issue(
@@ -255,7 +239,7 @@ class IssueTrackingPlugin2(Plugin):
         if auth_errors:
             return Response(auth_errors, status=400)
         if GroupMeta.objects.get_value(group, '%s:tid' % self.get_conf_key(), None):
-            if self.can_unlink_issues:
+            if 'unlink' in self.allowed_actions:
                 GroupMeta.objects.unset_value(group, '%s:tid' % self.get_conf_key())
                 return Response({'success': True, 'message': 'Successfully unlinked issue.'})
             return Response({'success': False, 'message': 'No issues to unlink.'})
@@ -266,6 +250,7 @@ class IssueTrackingPlugin2(Plugin):
             return Response(auth_errors, status=400)
         if request.method == 'GET':
             event = group.get_latest_event()
+            Event.objects.bind_nodes([event], 'data')
             return Response(self.get_link_existing_issue_fields(request, group, event, **kwargs))
         # TODO: validation + wrap in try catch
         self.link_issue(
@@ -290,14 +275,6 @@ class IssueTrackingPlugin2(Plugin):
             data=issue_information,
         )
         return Response({'success': True, 'message': 'Successfully linked issue.'})
-
-    def view_autocomplete(self, request, group, **kwargs):
-        """
-        Can be overridden by any plugins that use search apis
-        for autocomplete. Use query params: 'autocomplete_field'
-        and 'autocomplete_query'
-        """
-        return Response()
 
     def view_configure(self, request, project, **kwargs):
         if request.method == 'GET':
@@ -358,6 +335,7 @@ class IssueTrackingPlugin2(Plugin):
         plugin_issues.append(item)
         return plugin_issues
 
+    # TODO: should we get rid of this (move it to react?)
     def tags(self, request, group, tag_list, **kwargs):
         if not self.is_configured(request=request, project=group.project):
             return tag_list

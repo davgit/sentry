@@ -192,7 +192,8 @@ const IssuePlugin = React.createClass({
       value: this.state[action + 'FormData'][field.name],
       onChange: this.changeField.bind(this, action, field.name),
       label: field.label,
-      name: field.name
+      name: field.name,
+      disabled: field.readonly
     };
     switch (field.type) {
       case 'text':
