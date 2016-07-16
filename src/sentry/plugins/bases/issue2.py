@@ -150,7 +150,8 @@ class IssueTrackingPlugin2(Plugin):
             'name': 'comment',
             'label': 'Comment',
             'default': absolute_uri(group.get_absolute_url()),
-            'type': 'textarea'
+            'type': 'textarea',
+            'is_required': False
         }]
 
     def get_configure_plugin_fields(self, request, project, **kwargs):
@@ -200,15 +201,34 @@ class IssueTrackingPlugin2(Plugin):
 
         return self.auth_provider in get_auth_providers()
 
+    def validate_form(self, fields, form_data):
+        errors = {}
+        for field in fields:
+            if field.get('is_required', True) and not field.get('readonly'):
+                value = form_data.get(field['name'])
+                if value is None or value == '':
+                    errors[field['name']] = u'%s is a required field.' % field['label']
+        return errors
+
     def view_create(self, request, group, **kwargs):
         auth_errors = self.check_config_and_auth(request, group)
         if auth_errors:
             return Response(auth_errors, status=400)
+
+        event = group.get_latest_event()
+        Event.objects.bind_nodes([event], 'data')
+        fields = self.get_new_issue_fields(request, group, event, **kwargs)
         if request.method == 'GET':
-            event = group.get_latest_event()
-            Event.objects.bind_nodes([event], 'data')
-            return Response(self.get_new_issue_fields(request, group, event, **kwargs))
-        # TODO: add validation, put in try, except
+            return Response(fields)
+
+        # TODO: put in try, except
+        errors = self.validate_form(fields, request.DATA)
+        if errors:
+            return Response({
+                'error_type': 'validation',
+                'errors': errors
+            }, status=400)
+
         issue_id = self.create_issue(
             group=group,
             form_data=request.DATA,
@@ -248,11 +268,18 @@ class IssueTrackingPlugin2(Plugin):
         auth_errors = self.check_config_and_auth(request, group)
         if auth_errors:
             return Response(auth_errors, status=400)
+        event = group.get_latest_event()
+        Event.objects.bind_nodes([event], 'data')
+        fields = self.get_link_existing_issue_fields(request, group, event, **kwargs)
         if request.method == 'GET':
-            event = group.get_latest_event()
-            Event.objects.bind_nodes([event], 'data')
-            return Response(self.get_link_existing_issue_fields(request, group, event, **kwargs))
-        # TODO: validation + wrap in try catch
+            return Response(fields)
+        errors = self.validate_form(fields, request.DATA)
+        if errors:
+            return Response({
+                'error_type': 'validation',
+                'errors': errors
+            }, status=400)
+        # TODO: wrap in try catch
         self.link_issue(
             group=group,
             form_data=request.DATA,

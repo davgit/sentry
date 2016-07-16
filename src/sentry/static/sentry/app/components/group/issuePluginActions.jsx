@@ -30,8 +30,7 @@ const IssuePlugin = React.createClass({
       createFieldList: null,
       linkFieldList: null,
       loading: _.contains(['link', 'create'], this.props.actionType),
-      error: false,
-      errorDetails: null,
+      error: null,
       createFormData: {},
       linkFormData: {}
     };
@@ -59,10 +58,19 @@ const IssuePlugin = React.createClass({
             '/plugin/unlink/' + this.props.plugin.slug + '/');
   },
 
+  setError(error, defaultMessage) {
+    let _error;
+    if (error.status === 400 && error.responseJSON) {
+      _error = error.responseJSON;
+    } else {
+      _error = {'message': defaultMessage};
+    }
+    this.setState({error: _error});
+  },
+
   fetchData() {
     this.setState({
-      loading: true,
-      error: false
+      loading: true
     });
 
     if (this.props.actionType === 'create') {
@@ -74,18 +82,17 @@ const IssuePlugin = React.createClass({
           });
           this.setState({
             createFieldList: data,
-            error: false,
+            error: null,
             loading: false,
             createFormData: createFormData
           });
         },
         error: (error) => {
           let state = {
-            error: true,
             loading: false
           };
           if (error.status === 400 && error.responseJSON) {
-            state.errorDetails = error.responseJSON;
+            state.error = error.responseJSON;
           }
           this.setState(state);
         }
@@ -99,18 +106,17 @@ const IssuePlugin = React.createClass({
           });
           this.setState({
             linkFieldList: data,
-            error: false,
+            error: null,
             loading: false,
             linkFormData: linkFormData
           });
         },
         error: (error) => {
           let state = {
-            error: true,
             loading: false
           };
           if (error.status === 400 && error.responseJSON) {
-            state.errorDetails = error.responseJSON;
+            state.error = error.responseJSON;
           }
           this.setState(state);
         }
@@ -130,10 +136,7 @@ const IssuePlugin = React.createClass({
         this.props.onSuccess && this.props.onSuccess();
       },
       error: (error) => {
-        AlertActions.addAlert({
-          message: t('There was an error creating the issue.'),
-          type: 'error'
-        });
+        this.setError(error, t('There was an error creating the issue.'));
       }
     });
   },
@@ -150,10 +153,7 @@ const IssuePlugin = React.createClass({
         this.props.onSuccess && this.props.onSuccess();
       },
       error: (error) => {
-        AlertActions.addAlert({
-          message: t('There was an error linking the issue.'),
-          type: 'error'
-        });
+        this.setError(error, t('There was an error linking the issue.'));
       }
     });
   },
@@ -169,10 +169,7 @@ const IssuePlugin = React.createClass({
         this.props.onSuccess && this.props.onSuccess();
       },
       error: (error) => {
-        AlertActions.addAlert({
-          message: t('There was an error unlinking the issue.'),
-          type: 'error'
-        });
+        this.setError(error, t('There was an error unlinking the issue.'));
       }
     });
   },
@@ -219,29 +216,33 @@ const IssuePlugin = React.createClass({
     let form;
     switch (this.props.actionType) {
       case 'create':
-        form = (
-          <Form onSubmit={this.createIssue}>
-            {this.state.createFieldList.map((field) => {
-              return <div key={field.name}>{this.renderField('create', field)}</div>;
-            })}
-          </Form>
-        );
+        if (this.state.createFieldList) {
+          form = (
+            <Form onSubmit={this.createIssue} submitLabel={t('Create Issue')}>
+              {this.state.createFieldList.map((field) => {
+                return <div key={field.name}>{this.renderField('create', field)}</div>;
+              })}
+            </Form>
+          );
+        }
         break;
       case 'link':
-        form = (
-          <Form onSubmit={this.linkIssue}>
-            {this.state.linkFieldList.map((field) => {
-              return <div key={field.name}>{this.renderField('link', field)}</div>;
-            })}
-          </Form>
-        );
+        if (this.state.linkFieldList) {
+          form = (
+            <Form onSubmit={this.linkIssue} submitLabel={t('Link Issue')}>
+              {this.state.linkFieldList.map((field) => {
+                return <div key={field.name}>{this.renderField('link', field)}</div>;
+              })}
+            </Form>
+          );
+        }
         break;
       case 'unlink':
         form = (
           <div>
             <p>{t('Are you sure you want to unlink this issue?')}</p>
             <button onClick={this.unlinkIssue}
-                    className="btn btn-danger">{t('Unlink')}</button>
+                    className="btn btn-danger">{t('Unlink Issue')}</button>
           </div>
         );
         break;
@@ -259,7 +260,7 @@ const IssuePlugin = React.createClass({
   },
 
   renderError() {
-    let error = this.state.errorDetails;
+    let error = this.state.error;
     if (!error) {
       return null;
     }
@@ -286,20 +287,36 @@ const IssuePlugin = React.createClass({
               <p>You still need to <a href={this.getPluginConfigureUrl()}>configure this plugin</a> before you can use it.</p>}
         </div>
       );
+    } else if (error.error_type === 'validation') {
+      let errors = [];
+      for (let name in error.errors) {
+        errors.push(<p key={name}>{error.errors[name]}</p>);
+      }
+      return (
+        <div className="alert alert-error alert-block">
+          {errors}
+        </div>
+      );
+    } else if (error.message) {
+      return (
+        <div className="alert alert-error alert-block">
+          <p>{error.message}</p>
+        </div>
+      );
     }
     return <LoadingError/>;
   },
 
   render() {
-    let content;
-    if (this.state.errorDetails) {
-      content = this.renderError();
-    } else if (this.state.loading) {
-      content = <LoadingIndicator />;
-    } else {
-      content = this.renderForm();
+    if (this.state.loading) {
+      return <LoadingIndicator />;
     }
-    return content;
+    return (
+      <div>
+        {this.renderError()}
+        {this.renderForm()}
+      </div>
+    );
   }
 });
 
