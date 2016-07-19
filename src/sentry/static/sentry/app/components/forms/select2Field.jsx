@@ -27,6 +27,16 @@ export default class Select2Field extends InputField {
         results: (data) => {
           return {results: data[this.props.name]};
         }
+      },
+      formatAjaxError: (error) => {
+        let resp = error.responseJSON;
+        if (resp && resp.error_type === 'validation') {
+          let message = resp.errors[0] && resp.errors[0].__all__;
+          if (message) {
+            return message;
+          }
+        }
+        return 'Loading failed';
       }
     });
   }

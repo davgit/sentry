@@ -16,6 +16,9 @@ from sentry.utils.http import absolute_uri
 from sentry.utils.safe import safe_execute
 
 
+class PluginError(Exception):
+    pass
+
 class IssueGroupActionEndpoint(GroupEndpoint):
     view_method_name = None
     plugin = None
@@ -221,7 +224,6 @@ class IssueTrackingPlugin2(Plugin):
         if request.method == 'GET':
             return Response(fields)
 
-        # TODO: put in try, except
         errors = self.validate_form(fields, request.DATA)
         if errors:
             return Response({
@@ -229,14 +231,19 @@ class IssueTrackingPlugin2(Plugin):
                 'errors': errors
             }, status=400)
 
-        issue_id = self.create_issue(
-            group=group,
-            form_data=request.DATA,
-            request=request,
-        )
+        try:
+            issue_id = self.create_issue(
+                group=group,
+                form_data=request.DATA,
+                request=request,
+            )
+        except PluginError as e:
+            return Response({
+                'error_type': 'validation',
+                'errors': [{'__all__': e.message}]
+                })
         GroupMeta.objects.set_value(group, '%s:tid' % self.get_conf_key(), issue_id)
 
-        print request.DATA
         issue_information = {
             'title': request.DATA['title'],
             'provider': self.get_title(),
@@ -279,12 +286,17 @@ class IssueTrackingPlugin2(Plugin):
                 'error_type': 'validation',
                 'errors': errors
             }, status=400)
-        # TODO: wrap in try catch
-        self.link_issue(
-            group=group,
-            form_data=request.DATA,
-            request=request,
-        )
+        try:
+            self.link_issue(
+                group=group,
+                form_data=request.DATA,
+                request=request,
+            )
+        except PluginError as e:
+            return Response({
+                'error_type': 'validation',
+                'errors': [{'__all__': e.message}]
+                })
 
         issue_id = int(request.DATA['issue_id'])
         GroupMeta.objects.set_value(group, '%s:tid' % self.get_conf_key(), issue_id)
