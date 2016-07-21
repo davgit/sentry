@@ -23,12 +23,12 @@ class ProjectPluginConfigureView(ProjectView):
         is_enabled = plugin.is_enabled(project)
         if isinstance(plugin, IssueTrackingPlugin2):
             view = None
-            issue_v2_plugin = [{
+            issue_v2_plugin = {
                 'title': plugin.get_title(),
                 'slug': plugin.slug,
                 'can_disable': plugin.can_disable,
                 'is_enabled': is_enabled
-            }]
+            }
         else:
             view = plugin.configure(request=request, project=project)
             if isinstance(view, HttpResponse):

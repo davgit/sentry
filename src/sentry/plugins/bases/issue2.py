@@ -19,6 +19,7 @@ from sentry.utils.safe import safe_execute
 class PluginError(Exception):
     pass
 
+
 class IssueGroupActionEndpoint(GroupEndpoint):
     view_method_name = None
     plugin = None
@@ -51,6 +52,9 @@ class IssuePluginProjectEndpoint(ProjectEndpoint):
 class IssueTrackingPlugin2(Plugin):
     auth_provider = None
     allowed_actions = ('create', 'link', 'unlink')
+
+    def has_project_conf(self):
+        return True
 
     def get_group_urls(self):
         _urls = []
@@ -241,7 +245,7 @@ class IssueTrackingPlugin2(Plugin):
             return Response({
                 'error_type': 'validation',
                 'errors': [{'__all__': e.message}]
-                })
+            })
         GroupMeta.objects.set_value(group, '%s:tid' % self.get_conf_key(), issue_id)
 
         issue_information = {
@@ -296,7 +300,7 @@ class IssueTrackingPlugin2(Plugin):
             return Response({
                 'error_type': 'validation',
                 'errors': [{'__all__': e.message}]
-                })
+            })
 
         issue_id = int(request.DATA['issue_id'])
         GroupMeta.objects.set_value(group, '%s:tid' % self.get_conf_key(), issue_id)

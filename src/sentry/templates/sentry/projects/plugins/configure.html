@@ -82,10 +82,10 @@
 
     <script>
     $(function(){
-        React.render(React.createFactory(Sentry.IssuePluginConfiguration)({
+        React.render(React.createFactory(Sentry.IssuePluginConfigForm)({
             project: {% serialize project %},
             organization: {% serialize organization %},
-            plugins: {% serialize issue_v2_plugin %}
+            plugin: {% serialize issue_v2_plugin %}
         }), document.getElementById('issue_plugins'));
     });
     </script>
