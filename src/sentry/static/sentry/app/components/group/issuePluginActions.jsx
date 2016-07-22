@@ -3,7 +3,7 @@ import _ from 'underscore';
 import Modal from 'react-bootstrap/lib/Modal';
 import AlertActions from '../../actions/alertActions';
 import ApiMixin from '../../mixins/apiMixin';
-import {Form, Select2Field, TextareaField, TextField} from '../../components/forms';
+import {Form, Select2Field, Select2FieldAutocomplete, TextareaField, TextField} from '../../components/forms';
 import DropdownLink from '../../components/dropdownLink';
 import GroupActions from '../../actions/groupActions';
 import GroupState from '../../mixins/groupState';
@@ -203,6 +203,9 @@ const IssuePlugin = React.createClass({
         if (field.has_autocomplete) {
           props.url = ('/api/0/issues/' + this.getGroup().id +
                        '/plugin/autocomplete/' + this.props.plugin.slug);
+          el = <Select2FieldAutocomplete {...props} />;
+        } else {
+          props.choices = field.choices;
           el = <Select2Field {...props} />;
         }
         break;

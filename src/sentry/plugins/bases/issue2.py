@@ -158,7 +158,7 @@ class IssueTrackingPlugin2(Plugin):
             'label': 'Comment',
             'default': absolute_uri(group.get_absolute_url()),
             'type': 'textarea',
-            'is_required': False
+            'required': False
         }]
 
     def get_configure_plugin_fields(self, request, project, **kwargs):
@@ -211,7 +211,7 @@ class IssueTrackingPlugin2(Plugin):
     def validate_form(self, fields, form_data):
         errors = {}
         for field in fields:
-            if field.get('is_required', True) and not field.get('readonly'):
+            if field.get('required', True) and not field.get('readonly'):
                 value = form_data.get(field['name'])
                 if value is None or value == '':
                     errors[field['name']] = u'%s is a required field.' % field['label']

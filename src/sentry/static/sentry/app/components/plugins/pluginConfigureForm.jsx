@@ -1,7 +1,7 @@
 import React from 'react';
 import AlertActions from '../../actions/alertActions';
 import ApiMixin from '../../mixins/apiMixin';
-import {Form, Select2Field, TextareaField, TextField} from '../forms';
+import {Form, Select2Field, Select2FieldAutocomplete, TextareaField, TextField} from '../forms';
 import LoadingIndicator from '../loadingIndicator';
 import {t} from '../../locale';
 
@@ -79,6 +79,9 @@ const IssuePluginConfigForm = React.createClass({
         break;
       case 'select':
         if (field.has_autocomplete) {
+          el = <Select2FieldAutocomplete {...props} />;
+        } else {
+          props.choices = field.choices;
           el = <Select2Field {...props} />;
         }
         break;
